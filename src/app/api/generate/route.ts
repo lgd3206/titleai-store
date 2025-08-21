@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]/route"; // 调整路径
+import { authOptions } from "@/lib/auth"; // 修改这一行
 
 export async function POST(request: NextRequest) {
   console.log('API Generate Route Called');
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       userId: userId 
     });
     
-    // 提取内容
+    // 其余代码保持不变...
     const content = body.content || body.topic || '';
     const samples = body.samples || [];
     
@@ -43,10 +43,8 @@ export async function POST(request: NextRequest) {
     if (!apiKey || apiKey.includes('your_')) {
       console.log('Using test mode for user:', userId);
       
-      // 模拟延迟
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // 3. 为不同用户生成不同的测试标题（基于用户ID）
       const baseTestTitles = [
         '分享一个超实用的小技巧，真的太好用了！',
         '用了这个方法一周，效果超出预期',
@@ -60,7 +58,6 @@ export async function POST(request: NextRequest) {
         '亲测有效的实用技巧分享'
       ];
       
-      // 4. 基于用户ID选择不同的标题组合
       const userHash = userId ? userId.split('').reduce((a, b) => {
         a = ((a << 5) - a) + b.charCodeAt(0);
         return a & a;
@@ -71,21 +68,17 @@ export async function POST(request: NextRequest) {
       
       console.log('Generated test titles for user:', userId);
       
-      // 5. 可选：保存到数据库（如果你有数据库）
-      // await saveUserGeneration(userId, content, samples, testTitles);
-      
       return NextResponse.json({
         success: true,
         titles: testTitles,
         testMode: true,
-        userId: userId // 调试用
+        userId: userId
       });
     }
 
-    // 使用真实API
+    // 真实API逻辑
     console.log('Using real DeepSeek API for user:', userId);
     
-    // 6. 如果有样本标题，将用户风格融入prompt
     let prompt = `请为以下内容生成5个吸引人的标题：
 ${content}`;
 
@@ -136,14 +129,11 @@ ${content}`;
       .filter(line => line.length > 0)
       .slice(0, 5);
 
-    // 7. 可选：保存到数据库
-    // await saveUserGeneration(userId, content, samples, titles);
-
     return NextResponse.json({
       success: true,
       titles: titles,
       usage: data.usage,
-      userId: userId // 调试用
+      userId: userId
     });
 
   } catch (error) {

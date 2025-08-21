@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth"; // 修改这一行
+import { authOptions } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   console.log('API Generate Route Called');
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. 获取用户信息
+    // 2. 获取用户信息 - 优先使用ID，其次使用email
     const userId = session.user?.id || session.user?.email;
     console.log('Request from user:', userId);
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       userId: userId 
     });
     
-    // 其余代码保持不变...
+    // 提取内容
     const content = body.content || body.topic || '';
     const samples = body.samples || [];
     
@@ -43,8 +43,10 @@ export async function POST(request: NextRequest) {
     if (!apiKey || apiKey.includes('your_')) {
       console.log('Using test mode for user:', userId);
       
+      // 模拟延迟
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // 3. 为不同用户生成不同的测试标题（基于用户ID和内容）
       const baseTestTitles = [
         '分享一个超实用的小技巧，真的太好用了！',
         '用了这个方法一周，效果超出预期',
@@ -55,30 +57,49 @@ export async function POST(request: NextRequest) {
         '终于找到了完美的解决方案',
         '推荐一个改变我生活的小技巧',
         '不看后悔系列：超好用的方法',
-        '亲测有效的实用技巧分享'
+        '亲测有效的实用技巧分享',
+        '意想不到的好方法，必须推荐',
+        '试了无数方法，这个最有效',
+        '简单又实用的生活小窍门',
+        '这个技巧改变了我的生活',
+        '分享一个让人惊喜的发现'
       ];
       
-      const userHash = userId ? userId.split('').reduce((a, b) => {
-        a = ((a << 5) - a) + b.charCodeAt(0);
-        return a & a;
-      }, 0) : 0;
+      // 4. 修复哈希算法 - 同时考虑用户ID和内容
+      const createHash = (str: string): number => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          const char = str.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & 0xffffffff; // 转换为32位整数
+        }
+        return hash;
+      };
       
-      const startIndex = Math.abs(userHash) % 6;
+      // 结合用户ID和内容创建唯一哈希
+      const userContentHash = createHash((userId || 'anonymous') + '|' + content);
+      console.log('User hash for:', userId, 'Hash:', userContentHash);
+      
+      // 基于哈希值选择不同的标题组合
+      const startIndex = Math.abs(userContentHash) % (baseTestTitles.length - 4);
       const testTitles = baseTestTitles.slice(startIndex, startIndex + 5);
       
-      console.log('Generated test titles for user:', userId);
+      console.log('Generated test titles for user:', userId, 'StartIndex:', startIndex);
       
       return NextResponse.json({
         success: true,
         titles: testTitles,
         testMode: true,
-        userId: userId
+        userId: userId,
+        hashValue: userContentHash, // 调试用，可以删除
+        startIndex: startIndex // 调试用，可以删除
       });
     }
 
-    // 真实API逻辑
+    // 使用真实API
     console.log('Using real DeepSeek API for user:', userId);
     
+    // 6. 如果有样本标题，将用户风格融入prompt
     let prompt = `请为以下内容生成5个吸引人的标题：
 ${content}`;
 
